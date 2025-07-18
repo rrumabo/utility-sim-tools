@@ -1,5 +1,3 @@
-
-
 import numpy as np
 
 def run_heat_solver_1d(u0, laplacian, alpha, dt, steps):
