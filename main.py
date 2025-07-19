@@ -8,8 +8,7 @@ from src.pdes.heat_solver_1d import run_heat_solver_1d
 from src.utils.diagnostics import compute_l2_error
 from src.visualization.animation_1d import animate_heat_solution
 
-def gaussian_bump(x, center=0.0, width=0.5, amplitude=1.0):
-    return amplitude * np.exp(-((x - center) / width)**2)
+from src.initial_conditions.profiles_1d import gaussian_bump, square_pulse, triangle_wave
 
 def main():
     with open("config.yaml", "r") as f:
@@ -26,10 +25,21 @@ def main():
 
     laplacian = make_laplacian_1d(N, dx)
 
-    if init["type"] == "gaussian_bump":
-        u0 = gaussian_bump(x, center=init["center"], width=init["width"], amplitude=init["amplitude"])
+    ic_type = init["type"]
+    kwargs = {
+        "center": init["center"],
+        "width": init["width"],
+        "amplitude": init["amplitude"]
+    }
+
+    if ic_type == "gaussian_bump":
+        u0 = gaussian_bump(x, **kwargs)
+    elif ic_type == "square_pulse":
+        u0 = square_pulse(x, **kwargs)
+    elif ic_type == "triangle_wave":
+        u0 = triangle_wave(x, **kwargs)
     else:
-        raise ValueError("Unsupported initial condition")
+        raise ValueError(f"Unsupported initial condition: {ic_type}")
 
     u_history = run_heat_solver_1d(u0, laplacian, sim["alpha"], sim["dt"], sim["steps"])
 
