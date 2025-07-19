@@ -12,7 +12,7 @@ initial_condition:
   amplitude: 1.0
 
 output:
-  folder: output
+  folder: figures
   plot_profile: true
   save_animation: true
   save_diagnostics: true

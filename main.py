@@ -2,6 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import yaml
+import argparse
 
 from src.numerics.laplacian_1d import make_laplacian_1d
 from src.pdes.heat_solver_1d import run_heat_solver_1d
@@ -10,8 +11,8 @@ from src.visualization.animation_1d import animate_heat_solution
 
 from src.initial_conditions.profiles_1d import gaussian_bump, square_pulse, triangle_wave
 
-def main():
-    with open("config.yaml", "r") as f:
+def main(config_path):
+    with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
 
     sim = cfg["simulation"]
@@ -67,4 +68,7 @@ def main():
             yaml.dump({"L2_error": float(l2_err)}, f)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Run heat solver with configuration")
+    parser.add_argument("--config", type=str, default="config.yaml", help="Path to config file")
+    args = parser.parse_args()
+    main(args.config)
