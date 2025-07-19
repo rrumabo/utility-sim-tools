@@ -1,0 +1,16 @@
+initial_condition:
+  amplitude: 0.69
+  center: -2.54
+  type: gaussian_bump
+  width: 1.45
+output:
+  folder: figures
+  plot_profile: true
+  save_animation: true
+  save_diagnostics: true
+simulation:
+  L: 20.0
+  N: 97
+  alpha: 0.34
+  dt: 0.001
+  steps: 500
