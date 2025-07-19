@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import yaml
 import argparse
+import csv
 
 from src.numerics.laplacian_1d import make_laplacian_1d
 from src.pdes.heat_solver_1d import run_heat_solver_1d
@@ -42,7 +43,9 @@ def main(config_path):
     else:
         raise ValueError(f"Unsupported initial condition: {ic_type}")
 
-    u_history = run_heat_solver_1d(u0, laplacian, sim["alpha"], sim["dt"], sim["steps"])
+    u_history, diagnostics = run_heat_solver_1d(
+    u0, laplacian, sim["alpha"], sim["dt"], sim["steps"]
+    )
 
     os.makedirs(out_cfg["folder"], exist_ok=True)
 
@@ -66,6 +69,18 @@ def main(config_path):
         l2_err = compute_l2_error(u_history[-1], u0, dx)
         with open(f"{out_cfg['folder']}/diagnostics.yaml", "w") as f:
             yaml.dump({"L2_error": float(l2_err)}, f)
+
+        import csv
+        with open(f"{out_cfg['folder']}/diagnostics.csv", "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["step", "min", "max", "mean"])
+            writer.writeheader()
+            for i, row in enumerate(diagnostics):
+                writer.writerow({
+                    "step": i,
+                    "min": row["min"],
+                    "max": row["max"],
+                    "mean": row["mean"],
+                })
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run heat solver with configuration")
