@@ -1,15 +1,24 @@
+import os
+import yaml
+import numpy as np
+import matplotlib.pyplot as plt
+
+import argparse
+import csv
+
+from src.utils.diagnostics import compute_l2_error
+from src.visualization.animation_1d import animate_heat_solution
+
 def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
 def maybe_save_diagnostics(u_final, u_ref, dx, folder):
-    from src.utils.diagnostics import compute_l2_error
     l2_err = compute_l2_error(u_final, u_ref, dx)
     with open(f"{folder}/diagnostics.yaml", "w") as f:
         yaml.dump({"L2_error": float(l2_err)}, f)
 
 def maybe_plot_final(x, u0, u_final, folder):
-    import matplotlib.pyplot as plt
     plt.figure(figsize=(8, 4))
     plt.plot(x, u0, label="Initial u₀", linestyle="--")
     plt.plot(x, u_final, label="Final u", linewidth=2)
@@ -22,22 +31,8 @@ def maybe_plot_final(x, u0, u_final, folder):
     plt.savefig(f"{folder}/final_comparison.png", dpi=300)
     plt.close()
 
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import yaml
-import argparse
-import csv
-
-from src.numerics.laplacian_1d import make_laplacian_1d
-from src.pdes.heat_solver_1d import run_heat_solver_1d
-from src.utils.diagnostics import compute_l2_error
-from src.visualization.animation_1d import animate_heat_solution
-
-from src.initial_conditions.profiles_1d import gaussian_bump, square_pulse, triangle_wave
-
-def main(config_path):
-
+def main(cfg):
+    dim = cfg.get("dimension", 1)
     sim = cfg["simulation"]
     init = cfg["initial_condition"]
     out_cfg = cfg["output"]
@@ -45,37 +40,46 @@ def main(config_path):
     L = sim["L"]
     N = sim["N"]
     dx = L / N
-    x = np.linspace(-L / 2, L / 2, N, endpoint=False)
 
-    laplacian = make_laplacian_1d(N, dx)
+    if dim == 1:
+        import numpy as _np
+        from src.numerics.laplacian_1d import make_laplacian_1d
+        from src.pdes.heat_solver_1d import run_heat_solver_1d
+        from src.initial_conditions.profiles_1d import gaussian_bump as ic_func
 
-    ic_type = init["type"]
-    kwargs = {
-        "center": init["center"],
-        "width": init["width"],
-        "amplitude": init["amplitude"]
-    }
+        x = np.linspace(-L / 2, L / 2, N, endpoint=False)
+        lap = make_laplacian_1d(N, dx)
+        u0 = ic_func(x, center=init["center"], width=init["width"], amplitude=init["amplitude"])
+        u_history, diagnostics = run_heat_solver_1d(u0, lap, sim["alpha"], sim["dt"], sim["steps"])
 
-    if ic_type == "gaussian_bump":
-        u0 = gaussian_bump(x, **kwargs)
-    elif ic_type == "square_pulse":
-        u0 = square_pulse(x, **kwargs)
-    elif ic_type == "triangle_wave":
-        u0 = triangle_wave(x, **kwargs)
+    elif dim == 2:
+        from src.numerics.laplacian_2d import make_laplacian_2d
+        from src.pdes.heat_solver_2d import run_heat_solver_2d
+        from src.initial_conditions.gaussian_2d import gaussian_bump_2d as ic_func
+
+        x = np.linspace(-L / 2, L / 2, N, endpoint=False)
+        y = x.copy()
+        X, Y = np.meshgrid(x, y, indexing="ij")
+        lap = make_laplacian_2d(N, N, dx, dx)
+        u0 = ic_func(X, Y, center=(init["center"], init["center"]), width=init["width"], amplitude=init["amplitude"])
+        u_history, diagnostics = run_heat_solver_2d(u0, lap, sim["alpha"], sim["dt"], sim["steps"])
+
     else:
-        raise ValueError(f"Unsupported initial condition: {ic_type}")
-
-    u_history, diagnostics = run_heat_solver_1d(
-    u0, laplacian, sim["alpha"], sim["dt"], sim["steps"]
-    )
+        raise ValueError(f"Unsupported dimension: {dim}")
 
     os.makedirs(out_cfg["folder"], exist_ok=True)
 
     if out_cfg.get("plot_profile", True):
-        maybe_plot_final(x, u0, u_history[-1], out_cfg["folder"])
+        maybe_plot_final(x if dim == 1 else X[:,0], 
+                         u0 if dim == 1 else u0[:,u0.shape[1]//2], 
+                         u_history[-1], 
+                         out_cfg["folder"])
 
     if out_cfg.get("save_animation", True):
-        animate_heat_solution(x, u_history, dt=sim["dt"], save_path=f"{out_cfg['folder']}/heat_diffusion.gif")
+        animate_heat_solution(x if dim == 1 else (x, y), 
+                              u_history, 
+                              dt=sim["dt"], 
+                              save_path=f"{out_cfg['folder']}/heat_diffusion.gif")
 
     if out_cfg.get("save_diagnostics", True):
         maybe_save_diagnostics(u_history[-1], u0, dx, out_cfg["folder"])
@@ -98,10 +102,7 @@ if __name__ == "__main__":
     parser.add_argument("--no-profile", action="store_true", help="Disable final profile plot")
     args = parser.parse_args()
 
-    # Load and override config
-    with open(args.config, "r") as f:
-        cfg = yaml.safe_load(f)
-
+    cfg = load_config(args.config)
     if args.no_animation:
         cfg["output"]["save_animation"] = False
     if args.no_diagnostics:
@@ -109,4 +110,4 @@ if __name__ == "__main__":
     if args.no_profile:
         cfg["output"]["plot_profile"] = False
 
-    main(args.config)
+    main(cfg)

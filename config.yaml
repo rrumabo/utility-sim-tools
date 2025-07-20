@@ -1,3 +1,5 @@
+dimension: 2
+
 simulation:
   L: 10.0
   N: 129
