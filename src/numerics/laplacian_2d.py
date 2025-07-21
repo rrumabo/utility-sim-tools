@@ -1,29 +1,36 @@
 import numpy as np
+import scipy.sparse as sp
 
 def make_laplacian_2d(Nx, Ny, dx, dy):
     """
-    Construct a periodic 5-point finite-difference Laplacian on a 2D grid
-    using Kronecker sums for efficiency.
+    Construct a sparse periodic 5-point finite-difference Laplacian
+    on a 2D grid using Kronecker sums.
 
     Parameters:
-        Nx (int): number of grid points in x
-        Ny (int): number of grid points in y
-        dx (float): spacing between points in x
-        dy (float): spacing between points in y
+        Nx (int): grid points in x
+        Ny (int): grid points in y
+        dx (float): grid spacing in x
+        dy (float): grid spacing in y
 
     Returns:
-        L (ndarray): Laplacian matrix of shape (Nx*Ny, Nx*Ny)
+        L (scipy.sparse.csr_matrix): sparse Laplacian of shape (Nx*Ny, Nx*Ny)
     """
-    # 1D Laplacians
-    Ix = np.eye(Nx)
-    Iy = np.eye(Ny)
-    Dx = -2 * Ix + np.eye(Nx, k=1) + np.eye(Nx, k=-1)
-    Dy = -2 * Iy + np.eye(Ny, k=1) + np.eye(Ny, k=-1)
-
-    # Scale by grid spacing
+    # 1D periodic Laplacian in x
+    Dx = -2 * sp.eye(Nx, format="csr")
+    Dx += sp.eye(Nx, k=1, format="csr") + sp.eye(Nx, k=-1, format="csr")
+    Dx[0, -1] = Dx[-1, 0] = 1  # Periodic wrap
     Dx /= dx**2
+
+    # 1D periodic Laplacian in y
+    Dy = -2 * sp.eye(Ny, format="csr")
+    Dy += sp.eye(Ny, k=1, format="csr") + sp.eye(Ny, k=-1, format="csr")
+    Dy[0, -1] = Dy[-1, 0] = 1  # Periodic wrap
     Dy /= dy**2
 
-    # 2D Laplacian via Kronecker sum
-    L = np.kron(Iy, Dx) + np.kron(Dy, Ix)
+    # Identity matrices
+    Ix = sp.eye(Nx, format="csr")
+    Iy = sp.eye(Ny, format="csr")
+
+    # Kronecker sum: L = Iy ⊗ Dx + Dy ⊗ Ix
+    L = sp.kron(Iy, Dx, format="csr") + sp.kron(Dy, Ix, format="csr")
     return L
