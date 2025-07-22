@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import os
+from matplotlib import animation
 
 def plot_final_frame(u, x, y, title="Final State", cmap="viridis", save_path=None):
     plt.imshow(u, origin="lower", extent=[x.min(), x.max(), y.min(), y.max()], cmap=cmap)
@@ -24,3 +26,22 @@ def plot_initial_vs_final(u0, u1, x, y, titles=("Initial", "Final"), cmap="virid
 
     plt.tight_layout()
     plt.show()
+
+def animate_2d(u_history, x, y, interval=40, filename="figures/heat_2D.mp4", cmap="viridis"):
+    if not os.path.exists("figures"):
+        os.makedirs("figures")
+
+    fig, ax = plt.subplots()
+    img = ax.imshow(u_history[0], extent=[x.min(), x.max(), y.min(), y.max()], origin="lower", cmap=cmap)
+
+    def update(frame):
+        img.set_data(u_history[frame])
+        return [img]
+
+    anim = animation.FuncAnimation(fig, update, frames=len(u_history), interval=interval, blit=True)
+
+    if filename:
+        anim.save(filename, writer="ffmpeg")
+        plt.close(fig)
+    else:
+        plt.show()
