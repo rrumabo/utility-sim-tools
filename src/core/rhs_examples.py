@@ -8,6 +8,14 @@ def make_nlse_rhs(L_op, alpha=1.0, beta=1.0):
         return (linear_term + nonlinear_term).flatten()
     return rhs
 
+def make_linear_rhs(operator, alpha=1.0):
+    """
+    Generic linear RHS for PDEs of the form du/dt = α * (operator @ u)
+    """
+    def rhs(u, t):
+        return alpha * (operator @ u)
+    return rhs
+
 def make_burgers_rhs(L_op, grad_func, nu=0.1):
     """
     Burgers'-style PDE: du/dt = -u · ∇u + ν ∇²u

@@ -1,3 +1,7 @@
+def compute_l2_error(u_final, u_ref, dx, dy=1.0):
+    """Compute the L2 error between two arrays."""
+    return np.sqrt(np.sum((u_final - u_ref) ** 2) * dx * dy)
+
 import matplotlib.pyplot as plt
 import numpy as np
 
