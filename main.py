@@ -9,6 +9,15 @@ import matplotlib.pyplot as plt
 import argparse
 import csv
 
+tracked_quantities = []
+
+def diagnostics_fn(u, t):
+    tracked_quantities.append({
+        "t": t,
+        "mass": np.sum(u),
+        "l2": np.sqrt(np.sum(u**2))
+    })
+
 from src.utils.config_loader import load_config
 
 from src.utils.diagnostics import plot_l2_error
@@ -104,7 +113,7 @@ def main(cfg):
     for step in range(steps):
         rhs_func = pde_system.rhs_func
         t = step * dt
-        u = step_func(u, rhs_func, t, dt)
+        u = step_func(u, rhs_func, t, dt, diagnostics_fn)
         u_history.append(u.copy())
         diagnostics.append({
             "min": u.min(),
@@ -130,9 +139,11 @@ def main(cfg):
         print("DEBUG: u0 shape:", u0.shape)
         print("DEBUG: u_history[-1] shape:", u_history[-1].shape)
         maybe_save_diagnostics(u_history[-1], u0, dx, out_cfg["folder"])
-        with open(f"{out_cfg['folder']}/diagnostics.csv", "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["step", "min", "max", "mean"])
+        with open(f"{out_cfg['folder']}/diagnostics_tracked.csv", "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["t", "mass", "l2", "step", "min", "max", "mean"])
             writer.writeheader()
+            for row in tracked_quantities:
+                writer.writerow(row)
             for i, row in enumerate(diagnostics):
                 writer.writerow({
                     "step": i,
