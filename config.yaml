@@ -26,7 +26,12 @@ output:
   folder: figures
   plot_profile: true
   save_animation: true
-  save_diagnostics: true
+  save_diagnostics_csv: true 
+
+diagnostics:
+  track: ["min", "max", "mean", "mass", "l2_error"]
+  save_csv: true
+  save_yaml: true
 
 validation:
   check_stability: true

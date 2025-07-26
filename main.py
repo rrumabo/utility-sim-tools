@@ -13,26 +13,8 @@ from src.utils.diagnostic_manager import DiagnosticManager
 
 from src.utils.config_loader import load_config
 
-from src.utils.diagnostics import plot_l2_error
+ 
 from src.visualization.animation_1d import animate_heat_solution
-
-def maybe_save_diagnostics(u_final, u_ref, dx, dy, folder):
-    u_final = u_final.reshape(-1)
-    u_ref = u_ref.reshape(-1)
-
-    from src.utils.diagnostics import compute_l2_error
-    l2_err = compute_l2_error(u_final, u_ref, dx, dy)
-
-    os.makedirs(folder, exist_ok=True)
-    # Save YAML summary
-    with open(os.path.join(folder, "diagnostics.yaml"), "w") as f_yaml:
-        yaml.dump({"L2_error": float(l2_err)}, f_yaml)
-
-    # Save CSV version
-    with open(os.path.join(folder, "diagnostics_summary.csv"), "w", newline="") as f_csv:
-        writer = csv.DictWriter(f_csv, fieldnames=["L2_error"])
-        writer.writeheader()
-        writer.writerow({"L2_error": float(l2_err)})
 
 def maybe_plot_final(x, u0, u_final, folder):
     plt.figure(figsize=(8, 4))
@@ -44,7 +26,7 @@ def maybe_plot_final(x, u0, u_final, folder):
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"{folder}/final_comparison.png", dpi=300)
+    plt.savefig(os.path.join(folder, "final_comparison.png"), dpi=300)
     plt.close()
 
 def main(cfg):
@@ -122,26 +104,24 @@ def main(cfg):
         })
         diagnostics_manager.track_step(u, step)
 
-    os.makedirs(out_cfg["folder"], exist_ok=True)
+    output_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), out_cfg["folder"]))
+    os.makedirs(output_folder, exist_ok=True)
 
     if out_cfg.get("plot_profile", True):
         maybe_plot_final(x if dim == 1 else X[:,0],
                          u0 if dim == 1 else u0[:,u0.shape[1]//2],
                          u_history[-1],
-                         out_cfg["folder"])
+                         output_folder)
 
     if out_cfg.get("save_animation", True):
         animate_heat_solution(x if dim == 1 else (x, y),
                               u_history,
                               dt=dt,
-                              save_path=f"{out_cfg['folder']}/heat_diffusion.gif")
+                              save_path=os.path.join(output_folder, "heat_diffusion.gif"))
 
     if out_cfg.get("save_diagnostics", True):
-        print("DEBUG: u0 shape:", u0.shape)
-        print("DEBUG: u_history[-1] shape:", u_history[-1].shape)
-        maybe_save_diagnostics(u_history[-1], u0, dx, dx if dim == 1 else dx, out_cfg["folder"])
-        diagnostics_manager.save_csv(os.path.join(out_cfg["folder"], "diagnostics_tracked.csv"))
-        diagnostics_manager.save_yaml(os.path.join(out_cfg["folder"], "diagnostics_summary.yaml"))
+        diagnostics_manager.save_csv(os.path.join(output_folder, "diagnostics_tracked.csv"))
+        diagnostics_manager.save_yaml(os.path.join(output_folder, "diagnostics_summary.yaml"))
 
     return u_history
 
