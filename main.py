@@ -9,14 +9,7 @@ import matplotlib.pyplot as plt
 import argparse
 import csv
 
-tracked_quantities = []
-
-def diagnostics_fn(u, t):
-    tracked_quantities.append({
-        "t": t,
-        "mass": np.sum(u),
-        "l2": np.sqrt(np.sum(u**2))
-    })
+from src.utils.diagnostic_manager import DiagnosticManager
 
 from src.utils.config_loader import load_config
 
@@ -65,6 +58,7 @@ def main(cfg):
     L = cfg["grid"]["L"]
     N = cfg["grid"]["N"]
     dx = L / N
+    dy = dx  # Assume square grid by default
 
     from src.core.rhs_examples import make_linear_rhs
     from src.core.time_integrators import rk4_step, euler_step
@@ -76,7 +70,7 @@ def main(cfg):
 
         x = np.linspace(-L / 2, L / 2, N, endpoint=False)
         lap = make_laplacian_1d(N, dx)
-        # Filter out 'type' key from init before passing as kwargs
+        
         ic_params = {k: v for k, v in init.items() if k != "type"}
         u0 = ic_func(x, **ic_params)
         u0 = u0.reshape(-1)
@@ -113,17 +107,20 @@ def main(cfg):
     u = u0.copy()
     u_history = [u.copy()]
     diagnostics = []
+    diagnostics_manager = DiagnosticManager(dx=dx, dy=dy if dim == 2 else None, u_ref=u0)
 
     for step in range(steps):
         rhs_func = pde_system.rhs_func
         t = step * dt
-        u = step_func(u, rhs_func, t, dt, diagnostics_fn)
+        u = step_func(u, rhs_func, t, dt)
         u_history.append(u.copy())
         diagnostics.append({
+            "step": step,
             "min": u.min(),
             "max": u.max(),
             "mean": u.mean(),
         })
+        diagnostics_manager.track_step(u, step)
 
     os.makedirs(out_cfg["folder"], exist_ok=True)
 
@@ -143,18 +140,8 @@ def main(cfg):
         print("DEBUG: u0 shape:", u0.shape)
         print("DEBUG: u_history[-1] shape:", u_history[-1].shape)
         maybe_save_diagnostics(u_history[-1], u0, dx, dx if dim == 1 else dx, out_cfg["folder"])
-        with open(f"{out_cfg['folder']}/diagnostics_tracked.csv", "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["t", "mass", "l2", "step", "min", "max", "mean"])
-            writer.writeheader()
-            for row in tracked_quantities:
-                writer.writerow(row)
-            for i, row in enumerate(diagnostics):
-                writer.writerow({
-                    "step": i,
-                    "min": row["min"],
-                    "max": row["max"],
-                    "mean": row["mean"],
-                })
+        diagnostics_manager.save_csv(os.path.join(out_cfg["folder"], "diagnostics_tracked.csv"))
+        diagnostics_manager.save_yaml(os.path.join(out_cfg["folder"], "diagnostics_summary.yaml"))
 
     return u_history
 
