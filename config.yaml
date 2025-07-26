@@ -2,9 +2,7 @@ grid:
   L: 10.0
   N: 129
 
-simulation:
-  L: 10.0
-  N: 129
+time:
   dt: 0.001
   steps: 500
 
@@ -29,3 +27,6 @@ output:
   plot_profile: true
   save_animation: true
   save_diagnostics: true
+
+validation:
+  check_stability: true

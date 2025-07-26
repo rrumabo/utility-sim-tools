@@ -1,5 +1,5 @@
 def run_simulation(cfg):
-    main(cfg)
+    return main(cfg)
 
 import os
 import yaml
@@ -23,18 +23,23 @@ from src.utils.config_loader import load_config
 from src.utils.diagnostics import plot_l2_error
 from src.visualization.animation_1d import animate_heat_solution
 
-def maybe_save_diagnostics(u_final, u_ref, dx, folder):
+def maybe_save_diagnostics(u_final, u_ref, dx, dy, folder):
     u_final = u_final.reshape(-1)
     u_ref = u_ref.reshape(-1)
-    if u_final.ndim == 1 or u_final.shape == u_ref.shape:
-        dy = dx  # 1D or flat vector case
-    else:
-        dy = dx  # fallback for 2D square grid (you can refine this later)
 
     from src.utils.diagnostics import compute_l2_error
     l2_err = compute_l2_error(u_final, u_ref, dx, dy)
-    with open(f"{folder}/diagnostics.yaml", "w") as f:
-        yaml.dump({"L2_error": float(l2_err)}, f)
+
+    os.makedirs(folder, exist_ok=True)
+    # Save YAML summary
+    with open(os.path.join(folder, "diagnostics.yaml"), "w") as f_yaml:
+        yaml.dump({"L2_error": float(l2_err)}, f_yaml)
+
+    # Save CSV version
+    with open(os.path.join(folder, "diagnostics_summary.csv"), "w", newline="") as f_csv:
+        writer = csv.DictWriter(f_csv, fieldnames=["L2_error"])
+        writer.writeheader()
+        writer.writerow({"L2_error": float(l2_err)})
 
 def maybe_plot_final(x, u0, u_final, folder):
     plt.figure(figsize=(8, 4))
@@ -51,15 +56,14 @@ def maybe_plot_final(x, u0, u_final, folder):
 
 def main(cfg):
     dim = cfg.get("dimension", 1)
-    sim = cfg["simulation"]
     init = cfg["initial_condition"]
     out_cfg = cfg["output"]
 
     pde_cfg = cfg["pde"]
     integrator_cfg = cfg["integrator"]
 
-    L = sim["L"]
-    N = sim["N"]
+    L = cfg["grid"]["L"]
+    N = cfg["grid"]["N"]
     dx = L / N
 
     from src.core.rhs_examples import make_linear_rhs
@@ -103,8 +107,8 @@ def main(cfg):
     else:
         raise ValueError(f"Unsupported integrator method: {integrator_cfg['method']}")
 
-    dt = sim["dt"]
-    steps = sim["steps"]
+    dt = cfg["time"]["dt"]
+    steps = cfg["time"]["steps"]
 
     u = u0.copy()
     u_history = [u.copy()]
@@ -138,7 +142,7 @@ def main(cfg):
     if out_cfg.get("save_diagnostics", True):
         print("DEBUG: u0 shape:", u0.shape)
         print("DEBUG: u_history[-1] shape:", u_history[-1].shape)
-        maybe_save_diagnostics(u_history[-1], u0, dx, out_cfg["folder"])
+        maybe_save_diagnostics(u_history[-1], u0, dx, dx if dim == 1 else dx, out_cfg["folder"])
         with open(f"{out_cfg['folder']}/diagnostics_tracked.csv", "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=["t", "mass", "l2", "step", "min", "max", "mean"])
             writer.writeheader()
@@ -151,6 +155,8 @@ def main(cfg):
                     "max": row["max"],
                     "mean": row["mean"],
                 })
+
+    return u_history
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run heat solver with configuration")

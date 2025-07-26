@@ -1,3 +1,6 @@
+import os
+import yaml
+import csv
 def compute_l2_error(u_final, u_ref, dx, dy=1.0):
     """Compute the L2 error between two arrays."""
     return np.sqrt(np.sum((u_final - u_ref) ** 2) * dx * dy)
@@ -28,3 +31,37 @@ def plot_l2_error(u_history, reference, dx, dy, title="L² Error over Time"):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
+
+
+# --- New diagnostics saving functions ---
+def save_diagnostics_summary(u_final, u_ref, dx, dy, path):
+    """Save final L2 error and field extrema to a YAML file."""
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    l2_err = compute_l2_error(u_final, u_ref, dx, dy)
+    diagnostics = {
+        "L2_error": float(l2_err),
+        "min": float(np.min(u_final)),
+        "max": float(np.max(u_final)),
+        "mean": float(np.mean(u_final)),
+    }
+
+    with open(os.path.join(path, "diagnostics.yaml"), "w") as f:
+        yaml.dump(diagnostics, f)
+
+
+def save_diagnostics_csv(diagnostics_list, path, filename="diagnostics.csv"):
+    """Save a list of diagnostic dictionaries to a CSV file."""
+    if not diagnostics_list:
+        return
+
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    keys = diagnostics_list[0].keys()
+    with open(os.path.join(path, filename), "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        for row in diagnostics_list:
+            writer.writerow(row)
